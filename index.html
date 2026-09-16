@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ดูข้อมูล ปน.">
+<meta name="theme-color" content="#fdf2f8">
+<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
+
+<title>ดูข้อมูล ปน. - แขวงฯปัตตานี</title>
+
+<!-- ✅ ฟอนต์ภาษาไทย -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- ✅ Supabase SDK v2 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root {
+  --bg-page: #f8fafc;
+  --text-main: #334155;
+  --text-muted: #64748b;
+  --shadow-sm: 0 4px 15px rgba(0,0,0,0.05);
+
+  /* ===== Safe-area สำหรับมือถือ ===== */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: "Kanit", "Sarabun", sans-serif;
+  background: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+/* ===== หน้าจอเริ่มต้น ===== */
+#splashScreen {
+  position: fixed; inset: 0; background: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999; transition: opacity 0.4s ease;
+}
+#splashScreen .logo { font-size: 2.5rem; font-weight: 700; color: #475569; }
+#splashScreen .status { margin-top: 1rem; font-size: 1rem; color: #94a3b8; }
+
+/* ===== โครงสร้างหลัก ===== */
+#mainContent { display: none; }
+.container {
+  max-width: 1200px; /* บีบให้เหมาะกับหน้าจอมือถือ */
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  padding-top: calc(1.5rem + var(--sat));
+  padding-bottom: calc(1rem + var(--sab));
+}
+
+/* ===== ส่วนหัวแบบมินิมอล ===== */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+.header-text h1 {
+  font-size: 2.5rem;/* 💡 ขยายจาก 1.6rem เป็น 2.5rem */
+  color: #334155;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.header-text p {
+  font-size: 1.5rem;/* 💡 ขยายข้อความย่อยจาก 1.2rem เป็น 1.5rem */
+  color: #64748b;
+  font-weight: 500;
+}
+.btn-pull {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 0.8rem 1.2rem;/* 💡 เพิ่ม padding ให้ปุ่มอ้วนขึ้น (บน-ล่าง 0.8, ซ้าย-ขวา 1.2) */
+  border-radius: 0.8rem;
+  font-family: inherit;
+  font-size: 1.2rem;/* 💡 ขยายตัวหนังสือในปุ่มจาก 0.85rem เป็น 1.2rem */
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+  transition: all 0.2s;
+}
+.btn-pull:active { transform: scale(0.95); background: #e2e8f0; }
+
+/* ===== ช่องค้นหาใหญ่ๆ ===== */
+.search-container {
+  position: relative;
+  margin-bottom: 2rem;
+}
+.search-icon {
+  position: absolute;
+  left: 1.2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.6rem;/* 💡 ขยายแว่นขยายจาก 1.2rem เป็น 1.6rem */
+  color: #94a3b8;
+}
+#searchBox {
+  width: 100%;
+  padding: 1.2rem 1.2rem 1.2rem 3.8rem;/* 💡 เพิ่มความสูงช่องค้นหา และดันข้อความหลบแว่นขยาย */
+  border: 2px solid #e2e8f0;
+  border-radius: 1rem;
+  font-family: inherit;
+  font-size: 1.4rem;/* 💡 ขยายตัวอักษรตอนพิมพ์จาก 1.1rem เป็น 1.4rem */
+  color: #334155;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+#searchBox:focus { border-color: #cbd5e1; }
+
+/* ===== ตารางการ์ด (ปรับคอลัมน์ตามขนาดหน้าจอ) ===== */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+/* ===== การ์ดสไตล์ Pastel ===== */
+.pcard {
+  border-radius: 1.2rem;
+  padding: 2.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.15s;
+  aspect-ratio: 4 / 3; /* ทำให้การ์ดดูเป็นสี่เหลี่ยมสมมาตร */
+  border: 2px solid rgba(255,255,255,0.5);
+}
+.pcard:active { transform: scale(0.96); filter: brightness(0.95); }
+.pcard-contract {
+  font-size: 5rem;
+  font-weight: 700;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+/* โทนสีพาสเทลหวานๆ 6 โทน */
+.pastel-0 { background: #fee2e2; color: #991b1b; } /* แดงพาสเทล */
+.pastel-1 { background: #dcfce7; color: #166534; } /* เขียวพาสเทล */
+.pastel-2 { background: #e0e7ff; color: #3730a3; } /* น้ำเงินพาสเทล */
+.pastel-3 { background: #fef08a; color: #854d0e; } /* เหลืองพาสเทล */
+.pastel-4 { background: #f3e8ff; color: #6b21a8; } /* ม่วงพาสเทล */
+.pastel-5 { background: #ffedd5; color: #9a3412; } /* ส้มพาสเทล */
+
+/* ===== แท็บรายละเอียด (Sheet) ===== */
+#detailSheet[hidden] { display: none; }
+#detailSheet {
+  position: fixed; inset: 0; z-index: 9000;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet-backdrop {
+  position: absolute; inset: 0; background: rgba(15, 23, 42, 0.4);
+  opacity: 0; transition: opacity 0.25s ease;
+}
+#detailSheet.open .sheet-backdrop { opacity: 1; }
+
+.sheet-panel {
+  position: relative; background: #ffffff; width: 100%; max-width: 600px; max-height: 85vh;
+  border-radius: 1.5rem 1.5rem 0 0; box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+#detailSheet.open .sheet-panel { transform: translateY(0); }
+
+.sheet-grip {
+  width: 50px; height: 5px; background: #e2e8f0; border-radius: 999px;
+  margin: 0.8rem auto; flex-shrink: 0;
+}
+.sheet-head {
+  padding: 0.5rem 1.5rem 1.5rem; text-align: center; border-bottom: 1px solid #f1f5f9; position: relative;
+}
+.sheet-contract { font-size: 1.8rem; font-weight: 700; color: #334155; }
+.sheet-title-sub { font-size: 0.95rem; color: #64748b; margin-top: 0.3rem; }
+.sheet-close {
+  position: absolute; right: 1.5rem; top: 0.5rem;
+  background: #f1f5f9; border: none; border-radius: 50%; width: 36px; height: 36px;
+  font-size: 1.2rem; cursor: pointer; color: #475569;
+}
+.sheet-body { padding: 1.5rem; overflow-y: auto; flex: 1; padding-bottom: calc(2rem + var(--sab)); }
+
+/* ตารางรายชื่อกรรมการ */
+.person-list { display: flex; flex-direction: column; gap: 0.8rem; }
+.person-card {
+  background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 1rem; padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
+}
+.person-role { font-size: 0.85rem; color: #3b82f6; font-weight: 600; }
+.person-name { font-size: 1.1rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 0.4rem;}
+.person-pos { font-size: 0.9rem; color: #64748b; }
+
+.empty { text-align: center; color: #94a3b8; padding: 3rem 1rem; font-size: 1.1rem; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: calc(2rem + var(--sab)); left: 50%; transform: translateX(-50%) translateY(150px);
+  background: #334155; color: #fff; padding: 0.8rem 1.5rem; border-radius: 2rem;
+  z-index: 10000; transition: transform 0.3s ease; font-size: 0.95rem; text-align: center;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ===== หน้าจอเริ่มต้น ===== -->
+<div id="splashScreen">
+  <div class="logo">Highway WorkD</div>
+  <div class="status" id="splashStatus">กำลังโหลดข้อมูล...</div>
+</div>
+
+<!-- ===== เนื้อหาหลัก ===== -->
+<div id="mainContent">
+  <div class="container">
+    
+    <!-- ส่วนหัว -->
+    <header>
+      <div class="header-text">
+        <h1>งาน พรบ. แขวงฯปัตตานี</h1>
+        <p>ดูข้อมูล ปน.</p>
+      </div>
+      <button type="button" class="btn-pull" id="btnDownload">🔄 ดึงข้อมูลโครงการ</button>
+    </header>
+
+    <!-- ช่องค้นหา -->
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input type="search" id="searchBox" placeholder="ค้นหา ปน. / เลขสัญญา...">
+    </div>
+
+    <!-- ตารางแสดงการ์ดพาสเทล -->
+    <div id="projectList"></div>
+
+  </div>
+</div>
+
+<!-- ===== แท็บรายละเอียด (แสดงแค่กรรมการ) ===== -->
+<div id="detailSheet" hidden role="dialog">
+  <div class="sheet-backdrop" data-sheet-close="1"></div>
+  <div class="sheet-panel">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <button type="button" class="sheet-close" id="btnSheetClose">✕</button>
+      <div class="sheet-contract" id="sheetContract">-</div>
+      <div class="sheet-title-sub" id="sheetTitleSub"></div>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- ===== Toast แจ้งเตือน ===== -->
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+// ==========================================================
+// ⚙ ตั้งค่า Supabase
+// ==========================================================
+const SUPABASE_URL = "https://xsitjazwsaprzcwnksyu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzaXRqYXp3c2Fwcnpjd25rc3l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NTc1NjMsImV4cCI6MjEwMjUzMzU2M30.XenCi59dbIR1aS0udfCOdu6nxJt6eWzTvoRDsLkZ2A8";
+const TABLE_NAME = "construction_projects";
+const STORAGE_KEY = "highway_workd_data";
+
+let supabaseClient = null;
+let projects = [];
+
+document.addEventListener("DOMContentLoaded", function () {
+  bindUI();
+  loadData();
+  
+  // โหลดหน้าเสร็จให้ซ่อน Splash เลย
+  setTimeout(() => {
+    document.getElementById("splashScreen").style.opacity = "0";
+    setTimeout(() => {
+      document.getElementById("splashScreen").style.display = "none";
+      document.getElementById("mainContent").style.display = "block";
+      renderList();
+      
+      // พยายามเชื่อมต่อ Supabase เบื้องหลัง
+      if (window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        syncFromSupabase(true); // true = sync เงียบๆ ไม่ขึ้นแจ้งเตือน
+      }
+    }, 400);
+  }, 600);
+});
+
+function bindUI() {
+  document.getElementById("btnDownload").addEventListener("click", () => syncFromSupabase(false));
+  document.getElementById("searchBox").addEventListener("input", renderList);
+  
+  const listEl = document.getElementById("projectList");
+  listEl.addEventListener("click", function (ev) {
+    const card = ev.target.closest(".pcard");
+    if (!card) return;
+    openDetailSheet(parseInt(card.getAttribute("data-index"), 10));
+  });
+
+  document.getElementById("btnSheetClose").addEventListener("click", closeDetailSheet);
+  document.getElementById("detailSheet").addEventListener("click", function (ev) {
+    if (ev.target.getAttribute("data-sheet-close") === "1") closeDetailSheet();
+  });
+}
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) projects = JSON.parse(saved);
+  } catch (e) { projects = []; }
+}
+
+function saveToLocal() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch (e) {}
+}
+
+// ==========================================================
+// แสดงรายการการ์ด
+// ==========================================================
+function renderList() {
+  const container = document.getElementById("projectList");
+  const term = document.getElementById("searchBox").value.trim().toLowerCase();
+
+  let visibleIndexes = [];
+  projects.forEach((p, i) => {
+    if (term) {
+      const hay = [p.name, p.contract_no, p.contractor].map(x => x ? String(x).toLowerCase() : "").join(" ");
+      if (hay.indexOf(term) === -1) return;
+    }
+    visibleIndexes.push(i);
+  });
+
+  // เรียงเลขสัญญา
+  visibleIndexes.sort((a, b) => {
+    const cA = projects[a].contract_no ? String(projects[a].contract_no).trim() : "";
+    const cB = projects[b].contract_no ? String(projects[b].contract_no).trim() : "";
+    return cA.localeCompare(cB, 'th', { numeric: true });
+  });
+
+  if (projects.length === 0) {
+    container.innerHTML = '<div class="empty">ไม่มีข้อมูล<br><small>กรุณากด "ดึงข้อมูลโครงการ"</small></div>';
+    return;
+  }
+  if (visibleIndexes.length === 0) {
+    container.innerHTML = '<div class="empty">ค้นหาไม่พบ</div>';
+    return;
+  }
+
+  let html = '<div class="card-grid">';
+  visibleIndexes.forEach((i, count) => {
+    const p = projects[i];
+    const contractText = p.contract_no ? String(p.contract_no) : "ไม่ระบุ";
+    const pastelClass = `pastel-${count % 6}`; // สุ่มสี 0-5 วนลูปไปเรื่อยๆ
+    
+    html += `<article class="pcard ${pastelClass}" data-index="${i}">`;
+    html += `<div class="pcard-contract">${escapeHtml(contractText)}</div>`;
+    html += `</article>`;
+  });
+  html += "</div>";
+  container.innerHTML = html;
+}
+
+// ==========================================================
+// เปิดดูข้อมูลกรรมการ
+// ==========================================================
+function openDetailSheet(idx) {
+  const p = projects[idx];
+  if (!p) return;
+  const sheet = document.getElementById("detailSheet");
+
+  document.getElementById("sheetContract").textContent = p.contract_no || "ไม่ระบุเลขสัญญา";
+  document.getElementById("sheetTitleSub").textContent = p.name || "(ไม่มีชื่อโครงการ)";
+  
+  // 💡 สร้างเฉพาะรายชื่อกรรมการ ตามสมุดบันทึก
+  let h = '';
+  const persons = Array.isArray(p.persons) ? p.persons : [];
+  if (persons.length > 0) {
+    h += '<div class="person-list">';
+    persons.forEach(person => {
+      if (person && typeof person === "object") {
+        const nm = person.name || person.fullname || "-";
+        const pos = person.position || person.pos || "-";
+        const role = person.role || "-";
+        
+        const isPresident = role === "ประธานคณะกรรมการ";
+        const crown = isPresident ? '👑 ' : '';
+        const colorStyle = isPresident ? 'color: #1e3a8a;' : '';
+
+        h += `<div class="person-card">
+                <div class="person-role">${escapeHtml(role)}</div>
+                <div class="person-name" style="${colorStyle}">${crown}${escapeHtml(nm)}</div>
+                <div class="person-pos">${escapeHtml(pos)}</div>
+              </div>`;
+      }
+    });
+    h += '</div>';
+  } else {
+    h += '<div class="empty">ยังไม่มีข้อมูลคณะกรรมการชุดนี้</div>';
+  }
+
+  document.getElementById("sheetBody").innerHTML = h;
+  
+  sheet.hidden = false;
+  void sheet.offsetWidth; // Force reflow
+  sheet.classList.add("open");
+}
+
+function closeDetailSheet() {
+  const sheet = document.getElementById("detailSheet");
+  sheet.classList.remove("open");
+  setTimeout(() => { sheet.hidden = true; }, 300);
+}
+
+// ==========================================================
+// ดึงข้อมูลจาก Cloud
+// ==========================================================
+async function syncFromSupabase(isSilent = false) {
+  if (!supabaseClient) return;
+  const btn = document.getElementById("btnDownload");
+  if (!isSilent) {
+    btn.disabled = true; 
+    btn.textContent = "⏳ กำลังดึง...";
+  }
+  
+  try {
+    const res = await supabaseClient.from(TABLE_NAME).select("id, name, contract_no, contractor, persons").order("created_at", { ascending: false });
+    if (res.error) throw res.error;
+    
+    // โหมดเลขาฯ เซฟทับข้อมูลในเครื่องเลย (Read-Only)
+    projects = res.data || [];
+    saveToLocal();
+    renderList();
+    if (!isSilent) showToast("✅ ดึงข้อมูลล่าสุดสำเร็จ", "success");
+  } catch (e) { 
+    if (!isSilent) showToast("❌ เกิดข้อผิดพลาด", "error"); 
+  } finally { 
+    if (!isSilent) {
+      btn.disabled = false; 
+      btn.textContent = "🔄 ดึงข้อมูลโครงการ";
+    }
+  }
+}
+
+// Utilities
+function escapeHtml(str) { return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+
+let toastTimer = null;
+function showToast(msg, type = "info") {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = `toast show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+}
+</script>
+</body>
+</html>
