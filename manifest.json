@@ -1,6 +1,6 @@
 {
   "name": "ดูข้อมูล ปน. V 1.0",
-  "short_name": "DailyReportHighwaySafety",
+  "short_name": "ดูข้อมูล ปน.",
   "description": "ดูข้อมูลงาน พรบ.แขวงฯปัตตานี V 1.0",
   "start_url": "./index.html",
   "scope": "./",
