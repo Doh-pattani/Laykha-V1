@@ -460,7 +460,7 @@ function closeDetailSheet() {
 }
 
 // ==========================================================
-// ดึงข้อมูลจาก Cloud
+// ดึงข้อมูลจาก Cloud (แก้ชื่อคอลัมน์ให้ตรงกับ V3)
 // ==========================================================
 async function syncFromSupabase(isSilent = false) {
   if (!supabaseClient) return;
@@ -471,24 +471,30 @@ async function syncFromSupabase(isSilent = false) {
   }
   
   try {
-    // 💡 1. เคลียร์ข้อมูลเก่าทิ้งก่อน
-    projects = [];
-    
-    // 💡 2. ดึงจากตารางใหม่ และเรียงตาม "updated_at" เพื่อให้ข้อมูลที่เพิ่งแก้ขึ้นมาก่อนเสมอ
+    projects = []; // ล้างแคชเก่า
+
+    // 💡 1. เรียกใช้ชื่อคอลัมน์ใหม่ตามตาราง doh_projects_v3
     const res = await supabaseClient
       .from(TABLE_NAME)
-      .select("id, name, contract_no, contractor, persons, updated_at")
-      .order("updated_at", { ascending: false, nullsLast: true });
+      .select("id, project_name, contract_number, contractor, committee_members") 
+      .order("created_at", { ascending: false }); // V3 ไม่มี updated_at เลยต้องใช้ created_at
       
     if (res.error) throw res.error;
     
-    // 💡 3. เซฟทับข้อมูลใหม่ลงเครื่อง
-    projects = res.data || [];
+    // 💡 2. วิชาแปลงร่าง: แปลงคอลัมน์ใหม่ของ V3 กลับไปเป็นชื่อตัวแปรเก่าที่ UI แอปเลขาฯ คุ้นเคย
+    projects = (res.data || []).map(row => ({
+      id: row.id,
+      name: row.project_name,           // จับคู่ project_name -> name
+      contract_no: row.contract_number, // จับคู่ contract_number -> contract_no
+      contractor: row.contractor,
+      persons: row.committee_members    // จับคู่ committee_members -> persons
+    }));
+
     saveToLocal();
     renderList();
-    
     if (!isSilent) showToast("✅ ดึงข้อมูลล่าสุดสำเร็จ", "success");
   } catch (e) { 
+    console.error("Supabase Error:", e);
     if (!isSilent) showToast("❌ เกิดข้อผิดพลาด", "error"); 
   } finally { 
     if (!isSilent) {
