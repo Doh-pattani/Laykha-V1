@@ -471,13 +471,22 @@ async function syncFromSupabase(isSilent = false) {
   }
   
   try {
-    const res = await supabaseClient.from(TABLE_NAME).select("id, name, contract_no, contractor, persons").order("created_at", { ascending: false });
+    // 💡 1. เคลียร์ข้อมูลเก่าทิ้งก่อน
+    projects = [];
+    
+    // 💡 2. ดึงจากตารางใหม่ และเรียงตาม "updated_at" เพื่อให้ข้อมูลที่เพิ่งแก้ขึ้นมาก่อนเสมอ
+    const res = await supabaseClient
+      .from(TABLE_NAME)
+      .select("id, name, contract_no, contractor, persons, updated_at")
+      .order("updated_at", { ascending: false, nullsLast: true });
+      
     if (res.error) throw res.error;
     
-    // โหมดเลขาฯ เซฟทับข้อมูลในเครื่องเลย (Read-Only)
+    // 💡 3. เซฟทับข้อมูลใหม่ลงเครื่อง
     projects = res.data || [];
     saveToLocal();
     renderList();
+    
     if (!isSilent) showToast("✅ ดึงข้อมูลล่าสุดสำเร็จ", "success");
   } catch (e) { 
     if (!isSilent) showToast("❌ เกิดข้อผิดพลาด", "error"); 
